@@ -8,6 +8,7 @@
 // We need to request permission first! (also in the info.plist)
 
 import AlarmKit
+import AppIntents
 import SwiftUI
 
 struct ContentView: View {
@@ -59,13 +60,22 @@ struct ContentView: View {
     }
     
     private func setAlarm() async throws {
+        /// AlarmID
+        let id = UUID()
+        
+        /// Secondary Alert Button
+        let secondaryButton = AlarmButton(text: "Open App", textColor: .white, systemImageName: "app.fill")
+        
         /// Alert
         let alert = AlarmPresentation.Alert(
             title: "Time's Up!!",
-            stopButton: .init(text: "Stop", textColor: .red, systemImageName: "stop.fill")
+            stopButton: .init(text: "Stop", textColor: .red, systemImageName: "stop.fill"),
+            secondaryButton: secondaryButton,
+            secondaryButtonBehavior: .custom
         )
         
         /// Presentation
+        /// (can be configured with another secondary button)
         let presentation = AlarmPresentation(alert: alert)
         
         /// Attributes (requires the creation of a struct that conforms to AlarmMetaData protocol)
@@ -80,11 +90,9 @@ struct ContentView: View {
         /// Configuration
         let config = AlarmManager.AlarmConfiguration(
             schedule: schedule,
-            attributes: attributes
+            attributes: attributes,
+            secondaryIntent: OpenAppIntent(id: id)
         )
-        
-        /// AlarmID
-        let id = UUID()
         
         /// Adding alarm to the system
         let _ = try await AlarmManager.shared.schedule(id: id, configuration: config)
@@ -109,4 +117,27 @@ struct ContentView: View {
 
 #Preview {
     ContentView()
+}
+
+struct OpenAppIntent: LiveActivityIntent {
+    static var title: LocalizedStringResource = "Opens App"
+    static var openAppWhenRun: Bool = true
+    static var isDiscoverable: Bool = false
+    
+    @Parameter
+    var id: String
+    
+    init(id: UUID) {
+        self.id = id.uuidString
+    }
+    
+    init() { }
+    
+    func perform() async throws -> some IntentResult {
+        if let alarmID = UUID(uuidString: id) {
+            print(alarmID)
+        }
+        
+        return .result()
+    }
 }
