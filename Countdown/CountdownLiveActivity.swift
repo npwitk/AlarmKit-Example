@@ -20,6 +20,22 @@ struct CountdownLiveActivity: Widget {
         return formatter
     }()
     
+    /// Custom formatter for seconds only
+    private func formatTimeRemaining(from date: Date) -> String {
+        let now = Date()
+        let timeInterval = date.timeIntervalSince(now)
+        
+        if timeInterval <= 0 {
+            return "00:00"
+        }
+        
+        let totalSeconds = Int(timeInterval)
+        let minutes = totalSeconds / 60
+        let seconds = totalSeconds % 60
+        
+        return String(format: "%02d:%02d", minutes, seconds)
+    }
+    
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: AlarmAttributes<CountDownAttribute>.self) { context in
             HStack {
@@ -30,24 +46,28 @@ struct CountdownLiveActivity: Widget {
                             Text(context.attributes.presentation.countdown?.title ?? "")
                                 .font(.title3)
                             
+                            // Use .timer style for live updates
                             Text(countdown.fireDate, style: .timer)
                                 .font(.title2)
+                                .monospacedDigit()
                         }
                     case .paused(let paused):
                         Group {
                             Text(context.attributes.presentation.paused?.title ?? "")
                                 .font(.title3)
                             
-                            Text(formatter.string(from: paused.totalCountdownDuration - paused.previouslyElapsedDuration) ?? "0:00")
+                            Text(formatter.string(from: paused.totalCountdownDuration - paused.previouslyElapsedDuration) ?? "00:00")
                                 .font(.title2)
+                                .monospacedDigit()
                         }
                     case .alert(let alert):
                         Group {
                             Text(context.attributes.presentation.alert.title)
                                 .font(.title3)
                             
-                            Text("0:00")
+                            Text("00:00")
                                 .font(.title2)
+                                .monospacedDigit()
                         }
                     @unknown default:
                         fatalError()
@@ -86,23 +106,151 @@ struct CountdownLiveActivity: Widget {
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    Text("Leading")
+                    VStack(alignment: .leading, spacing: 4) {
+                        Image(systemName: "timer")
+                            .font(.title2)
+                            .foregroundColor(.orange)
+                        
+                        switch context.state.mode {
+                        case .countdown:
+                            Text(String(localized: context.attributes.presentation.countdown?.title ?? "Countdown"))
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .lineLimit(1)
+                        case .paused:
+                            Text(String(localized: context.attributes.presentation.paused?.title ?? "Paused"))
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .lineLimit(1)
+                        case .alert:
+                            Text(String(localized: context.attributes.presentation.alert.title))
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .lineLimit(1)
+                        @unknown default:
+                            Text("Timer")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .lineLimit(1)
+                        }
+                    }
                 }
+                
                 DynamicIslandExpandedRegion(.trailing) {
-                    Text("Trailing")
+                    VStack(alignment: .trailing, spacing: 4) {
+                        switch context.state.mode {
+                        case .countdown(let countdown):
+                            Text(countdown.fireDate, style: .timer)
+                                .font(.title)
+                                .fontWeight(.semibold)
+                                .monospacedDigit()
+                        case .paused(let paused):
+                            Text(formatter.string(from: paused.totalCountdownDuration - paused.previouslyElapsedDuration) ?? "00:00")
+                                .font(.title)
+                                .fontWeight(.semibold)
+                                .monospacedDigit()
+                        case .alert:
+                            Text("00:00")
+                                .font(.title)
+                                .fontWeight(.semibold)
+                                .monospacedDigit()
+                        @unknown default:
+                            Text("00:00")
+                                .font(.title)
+                                .fontWeight(.semibold)
+                                .monospacedDigit()
+                        }
+                        
+                        Text("remaining")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
                 }
+                
                 DynamicIslandExpandedRegion(.bottom) {
-                    Text("Bottom")
+                    HStack(spacing: 20) {
+                        let alarmID = context.state.alarmID
+                        
+                        if case .paused = context.state.mode {
+                            Button(intent: AlarmActionIntent(id: alarmID, isCancel: false, isResume: true)) {
+                                HStack {
+                                    Image(systemName: "play.fill")
+                                    Text("Resume")
+                                }
+                                .font(.caption)
+                                .fontWeight(.medium)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(.orange)
+                        } else {
+                            Button(intent: AlarmActionIntent(id: alarmID, isCancel: false)) {
+                                HStack {
+                                    Image(systemName: "pause.fill")
+                                    Text("Pause")
+                                }
+                                .font(.caption)
+                                .fontWeight(.medium)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(.orange)
+                        }
+                        
+                        Button(intent: AlarmActionIntent(id: alarmID, isCancel: true)) {
+                            HStack {
+                                Image(systemName: "xmark")
+                                Text("Cancel")
+                            }
+                            .font(.caption)
+                            .fontWeight(.medium)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.red)
+                    }
+                    .padding(.horizontal)
                 }
             } compactLeading: {
-                Text("L")
+                HStack(spacing: 4) {
+                    Image(systemName: "timer")
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                    
+                    switch context.state.mode {
+                    case .countdown(let countdown):
+                        Text(countdown.fireDate, style: .timer)
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .monospacedDigit()
+                    case .paused(let paused):
+                        Text(formatter.string(from: paused.totalCountdownDuration - paused.previouslyElapsedDuration) ?? "00:00")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .monospacedDigit()
+                    case .alert:
+                        Text("00:00")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .monospacedDigit()
+                    @unknown default:
+                        Text("00:00")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .monospacedDigit()
+                    }
+                }
             } compactTrailing: {
-                Text("T")
+                Button(intent: AlarmActionIntent(id: context.state.alarmID, isCancel: true)) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.caption)
+                        .foregroundColor(.red)
+                }
+                .buttonStyle(.plain)
             } minimal: {
-                Text("Minimal Content")
+                Image(systemName: "timer")
+                    .font(.caption2)
+                    .foregroundColor(.orange)
             }
-            .widgetURL(URL(string: "http://www.apple.com"))
-            .keylineTint(Color.red)
+            .widgetURL(URL(string: "countdown://open"))
+            .keylineTint(.orange)
         }
     }
 }
