@@ -56,6 +56,16 @@ struct ContentView: View {
                     }
                 }
             }
+            
+            Button("Set Countdown Alarm") {
+                Task {
+                    do {
+                        try await setAlarmWithCountdown()
+                    } catch {
+                        print(error.localizedDescription)
+                    }
+                }
+            }
         }
     }
     
@@ -92,6 +102,63 @@ struct ContentView: View {
             schedule: schedule,
             attributes: attributes,
             secondaryIntent: OpenAppIntent(id: id)
+        )
+        
+        /// Adding alarm to the system
+        let _ = try await AlarmManager.shared.schedule(id: id, configuration: config)
+        print("Alarm is set successfully!")
+    }
+    
+    private func setAlarmWithCountdown() async throws {
+        /// Regular alarms require scheduling.
+        /// Countdown alarms are optional to scedule, but the countdown, pause, resume actions are necessary!!!!
+        
+        /// AlarmID
+        let id = UUID()
+        
+        /// Countdown
+        let alarmCountdown = Alarm.CountdownDuration(preAlert: 20, postAlert: 10)
+        
+        /// Secondary Alert Button
+        let secondaryButton = AlarmButton(text: "Repeat", textColor: .white, systemImageName: "arrow.clockwise")
+        
+        /// Alert
+        let alert = AlarmPresentation.Alert(
+            title: "Time's Up!!",
+            stopButton: .init(text: "Stop", textColor: .red, systemImageName: "stop.fill"),
+            secondaryButton: secondaryButton,
+            secondaryButtonBehavior: .countdown
+        )
+        
+        /// Presentation
+        let countdownPresentation = AlarmPresentation.Countdown(
+            title: "Coding",
+            pauseButton: .init(
+                text: "Pause",
+                textColor: .white,
+                systemImageName: "pause.fill"
+            )
+        )
+        
+        let pausedPresentation = AlarmPresentation.Paused(
+            title: "Paused",
+            resumeButton: .init(
+                text: "Resume",
+                textColor: .white,
+                systemImageName: "play.fill"
+            )
+        )
+        
+        let presentation = AlarmPresentation(alert: alert, countdown: countdownPresentation, paused: pausedPresentation)
+        
+        /// Attributes (requires the creation of a struct that conforms to AlarmMetaData protocol)
+        /// This will provides additional data to the Alarm UI for Live Activities (Dynamic Island) or more.
+        let attributes = AlarmAttributes<CountDownAttribute>(presentation: presentation, metadata: .init(), tintColor: .orange)
+        
+        /// Configuration
+        let config = AlarmManager.AlarmConfiguration(
+            countdownDuration: alarmCountdown,
+            attributes: attributes
         )
         
         /// Adding alarm to the system
